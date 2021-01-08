@@ -663,6 +663,7 @@ MUL	MUL	011	MUL	11		111		127	0	1*/
 			else if (mode == 2 || mode == 3)
 			{
 				printf("Invalid mode %d. PC=%#04x\n", mode, PC);
+				exit(0);	
 			}
             else if (mode == 6) DoCall();
             else if (mode == 7) Return();
@@ -1538,8 +1539,8 @@ Special		111		11			111			255	0	1*/
         void SetObjAttr16()
         {
             unsigned short addr = (unsigned short)(ObjectTable + D * OBJECT_ENTRY_SIZE + E);
-            memory[addr + 1] = (unsigned char)(IX % 256);
-            memory[addr] = (unsigned char)(IX / 256);
+            memory[addr] = (unsigned char)(IX % 256);
+            memory[addr+1] = (unsigned char)(IX / 256);
         }
 
         //ix = table
@@ -1552,7 +1553,7 @@ Special		111		11			111			255	0	1*/
 			unsigned short mask=0;
             unsigned short addr = (unsigned short)(ObjectTable + D * OBJECT_ENTRY_SIZE);
             addr += PROPERTY_BYTE_1;
-            if (E >= 8)
+            if (E > 8)
             {
                 addr++; //go to next property unsigned char
             }
@@ -1579,7 +1580,7 @@ Special		111		11			111			255	0	1*/
 			unsigned char mask;
 			unsigned char b;
 			unsigned char temp;
-            if (D >= 8)
+            if (D > 8)
             {
                 addr++;
             }
