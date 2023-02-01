@@ -1,3 +1,5 @@
+rm main.obj cgalib.obj
 wcc -bt=DOS main.c
-wcl main.obj
+wcc -bt=DOS cgalib.c
+wcl main.obj cgalib.obj
 mv main.exe lvm.exe

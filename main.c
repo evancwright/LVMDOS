@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include "cgalib.h"
 
 #define SCREEN_WIDTH 80
 #define SCORE_INDENT 48
@@ -136,25 +137,27 @@ void Streq();
 void LoadIndexed();
 void RageDump();
 void GetDbgCmd();
-
+void show_image(unsigned char id);
 unsigned short GetHex(char *);
 
 unsigned char ucase(unsigned char); 
 
 char buffer[80];
 char cmdbuf[80];
-char topline[80];
+char topline[81];
 unsigned char debug=1;
 unsigned short breakPoints[10];
 int numBp=0;
 int step=0;
 int bpOn=0;
+int graphicsOn = 1;
+
 		int main(int argc, char **argv)
 		{ 
 			int i=0;
 			FILE *fp = 0;
-			
-			
+            FILE *titleFilePtr = 0;
+            
 			if (argc !=  2)
 			{
 				printf("Usage: lvm file\n");
@@ -176,35 +179,46 @@ int bpOn=0;
 					exit(0);
 				}
 					
-					RamSize = fread(memory,1,RamSize,fp);
+				RamSize = fread(memory,1,RamSize,fp);
 				fclose(fp);
-				Init();
-				
+ 
+                start_cga();
+                if (graphicsOn == 1)
+                    cga_cls();
+                else
+                    CLS();
 
-				 
+
+                titleFilePtr = fopen("title.img","rb");
+                if  (titleFilePtr != NULL)
+                {
+                    fclose(titleFilePtr);
+                    show_image_path("title.img");
+                    wait_key();
+                    cga_cls();
+                }
+
+				Init(); //does nothing
+				
+                //if (graphicsOn==1) 
+                //{
+                   
+                //}
+
 
 				while (1)
-				{
-			//		if (PC == 0x0016)
-				//	{
-					//	bpOn = 1;
-				//	}
-					
-			//		if (bpOn==1)
-			//		{
-			//			printf("PC=%#08x",PC);
-			//		}
-			
+				{ 
 					if (step == 1)
 					{
 						GetDbgCmd();
 						
 						Fetch();
 						Execute();
-						RageDump(); 
+						//RageDump(); 
  					}
 					else
 					{
+                        /*
 						for (i=0; i < numBp; i++)
 						{
 							if (PC == breakPoints[i])
@@ -215,16 +229,20 @@ int bpOn=0;
 								break;
 							}
 						}
-
+                        */
 						
 						Fetch();
 						Execute();
-						
 						
 					}
 				}
 				
 				free(memory);
+
+                if (graphicsOn == 1) 
+                {
+                    stop_cga();
+                }
 			}
 			else
 			{
@@ -235,6 +253,17 @@ int bpOn=0;
 			return 0;
 		}
 	 
+        void print_text(char * str)
+        {
+/*            if (graphicsOn)
+            {
+               text_out(str);     
+            }
+           else*/ 
+            {
+                printf(str);    
+            }
+        }
    
         void Init()
         { 
@@ -1206,7 +1235,11 @@ Special		111		11			111			255	0	1*/
         {
             if (mode == 0) ReadLine();
             else if (mode == 1) CharOut();
-            //else if (mode == 2) SetObjProp();
+            else if (mode == 2) 
+			{//show image in A
+                cga_cls();
+				show_image(A);
+			}
             else if (mode == 3) Streq();
             else if (mode == 4) AnyKey();
             else if (mode == 5) CLS();
@@ -1253,7 +1286,7 @@ Special		111		11			111			255	0	1*/
 				memory[IX + i] = (unsigned char)buffer[i];
 			}
 			
-			//null terminate buffer
+			//null terminate bufferf
 			//WriteByte((unsigned short)(IX + i) ,0);
 			memory[IX + i]=0;
 		//printf("Buffer=Buffer=%s\n",&memory[IX]);
@@ -1264,8 +1297,9 @@ Special		111		11			111			255	0	1*/
 
         void AnyKey()
         {
-			fflush(stdin);
-			fgetc(stdin);
+		//	fflush(stdin);
+		//	fgetc(stdin);
+            wait_key(); //in cga library
         }
 
         void Streq()
@@ -1299,19 +1333,23 @@ Special		111		11			111			255	0	1*/
             while (memory[i] != 0)
             {
                 len = WordLenIX(i);
-                if (len > (ScreenWidth - hPos))
+                //printf("wordlen=%d\n", len);
+                if (len + hPos >= ScreenWidth)
                 {
                     Newline();
-                    hPos = 0;
                 }
                 
                 //print the word
                 i = PrintWord(i); 
 
+                if (hPos < ScreenWidth)
+                    ChOut((unsigned char)' ');
+
                 if (memory[i] == 0)
                     break;
 
-                ChOut((unsigned char)' ');
+                
+                hPos++;
                 i = MoveNextWord(i);
                 
             }
@@ -1343,7 +1381,6 @@ Special		111		11			111			255	0	1*/
 
         /// <summary>
         /// iy = id#
-        /// ix = table addr
         /// </summary>
         void PrintStrN16()
         {
@@ -1377,7 +1414,9 @@ Special		111		11			111			255	0	1*/
 
         void CLS()
         {
-			printf("\x1b[2J"); //cls
+            if (graphicsOn==1)cga_cls();
+			else printf("\x1b[2J"); //cls
+            
 			printf("\x1b[2;0H"); //position cursor
         }
 
@@ -1416,8 +1455,7 @@ Special		111		11			111			255	0	1*/
 			
 			memset(buffer, 0, sizeof(char));
 			
-			//gets_s(buffer, 80);
-			//gets(buffer);
+ 
 			fgets(buffer, 40,stdin);
 			len = strlen(buffer);
 
@@ -1462,8 +1500,9 @@ Special		111		11			111			255	0	1*/
 				printf("File not found.\n");
 			}
 		}
-       
-
+ 
+		//Generates a random number and mods it by B
+		//and puts the result in A
         void RMod()
         {
 			int r = rand();
@@ -1472,6 +1511,7 @@ Special		111		11			111			255	0	1*/
 
         void Quit()
         {
+            stop_cga();
 			exit(0);
         }
 
@@ -1610,6 +1650,7 @@ Special		111		11			111			255	0	1*/
             memory[addr] = E;
         }
 
+		//parent of A in A
         void GetParent()
         {
             unsigned short addr = (unsigned short)(ObjectTable + A * OBJECT_ENTRY_SIZE + 1);
@@ -1622,27 +1663,21 @@ Special		111		11			111			255	0	1*/
         {
 			int len;
 			int i=0;
+            int block = 219;
 			printf("\x1b[s"); //save cursor
 			printf("\x1b[0;0H"); //home
-
-			sprintf(topline,"##### %s ", (char*)&memory[IX] );
-			len = strlen(topline);
-			for (i=len; i < SCORE_INDENT; i++)
-			{
-				strcat(topline,"#");
-			}
-			strcat(topline," SCORE:");
+            memset(topline, block, ScreenWidth);
+            topline[SCREEN_WIDTH]=0;
+			sprintf(&topline[2]," %s ", (char*)&memory[IX] );
  
-			strcat(topline,(char*)&memory[IY]);
-			strcat(topline,"/100");
-
-
-			for (i=strlen(topline); i < SCREEN_WIDTH; i++)
-			{
-				strcat(topline,"#");
-			}
-
-
+ 			len = strlen(topline);
+            topline[len]=block; //overwrite null
+ 			sprintf(&topline[ScreenWidth-16],"SCORE:   ");
+ 
+			sprintf(&topline[ScreenWidth-10],"%s/100",(char*)&memory[IY]);
+            len = strlen(topline);
+   			topline[len] = block;
+            topline[ScreenWidth]=0;
 			printf(topline);
 			printf("\x1b[u"); //restore cursor
 			 
@@ -1653,7 +1688,8 @@ Special		111		11			111			255	0	1*/
         {
             if (outputChannel == CONSOLE)
             {
-                printf("%c", ch);
+                    printf("%c", ch);
+                    
             }
             else if (outputChannel == IXREGISTER)
             {
