@@ -1001,9 +1001,9 @@ ADD16	add ix,iy	100	ADD	10	IX	111	IX	151	0	1*/
             else if (mode == 1)
                 data = B;
             else if (mode == 2)
-                data = D = data;
+                data = D;
             else if (mode == 3)
-                E = data;
+                data = E;
             memory[SP] = data;
             SP--;
         }
